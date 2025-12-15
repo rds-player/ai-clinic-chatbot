@@ -329,7 +329,7 @@ Você pode usar este projeto livremente para:
 **Rodinei Silva**
 
 - 🌐 Portfolio: [seu-portfolio.com](#)
-- 💼 LinkedIn: [[Rodinei Silva](https://www.linkedin.com/in/rodinei-silva-979441276/)](#)
+- 💼 LinkedIn: [[Rodinei Silva]](https://www.linkedin.com/in/rodinei-silva-979441276/)
 - 📧 Email: [rodineisilva34@gmail.com](#)
 - 🐙 GitHub: [rds-player]([https://github.com/seu-usuario](https://github.com/rds-player))
 
