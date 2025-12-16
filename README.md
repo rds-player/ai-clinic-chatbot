@@ -326,12 +326,12 @@ Você pode usar este projeto livremente para:
 
 ## 👨‍💻 Autor
 
-**Seu Nome**
+**Rodinei Silva**
 
 - 🌐 Portfolio: [seu-portfolio.com](#)
-- 💼 LinkedIn: [Seu Nome](#)
-- 📧 Email: [seu-email@exemplo.com](#)
-- 🐙 GitHub: [@seu-usuario](https://github.com/seu-usuario)
+- 💼 LinkedIn: [Rodinei Silva](https://www.linkedin.com/in/rodinei-silva-979441276/)
+- 📧 Email: rodineisilva34@gmail.com
+- 🐙 GitHub: [@rds-player](https://github.com/rds-player)
 
 ---
 
