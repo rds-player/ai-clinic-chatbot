@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Lead } from '@/models/Lead';
 import { Loader2, Download, RefreshCw, Lock } from 'lucide-react';
 
@@ -11,6 +11,9 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'new' | 'contacted' | 'scheduled'>('all');
+  const [deletingLeadId, setDeletingLeadId] = useState<string | null>(null);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchLeads = async () => {
     if (!password) return;
@@ -33,6 +36,7 @@ export default function AdminPage() {
 
       const data = await response.json();
       setLeads(data.leads);
+      setSelectedLeadIds(prev => prev.filter(id => data.leads.some((lead: Lead) => lead._id?.toString() === id)));
       setIsAuthenticated(true);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch leads');
@@ -65,6 +69,98 @@ export default function AdminPage() {
     }
   };
 
+  const deleteLead = async (leadId: string) => {
+    if (!leadId) return;
+    if (!password) {
+      setError('Please log in to delete leads');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this lead?')) {
+      return;
+    }
+
+    setDeletingLeadId(leadId);
+
+    try {
+      const response = await fetch(`/api/leads?password=${encodeURIComponent(password)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete lead');
+      }
+
+      setSelectedLeadIds((prev) => prev.filter((id) => id !== leadId));
+
+      fetchLeads();
+    } catch (err: any) {
+      console.error('Failed to delete lead:', err);
+      setError(err.message || 'Failed to delete lead');
+    } finally {
+      setDeletingLeadId(null);
+    }
+  };
+
+  const toggleLeadSelection = (leadId: string) => {
+    setSelectedLeadIds((prev) => (
+      prev.includes(leadId)
+        ? prev.filter((id) => id !== leadId)
+        : [...prev, leadId]
+    ));
+  };
+
+  const deleteSelectedLeads = async () => {
+    if (!password) {
+      setError('Please log in to delete leads');
+      return;
+    }
+
+    if (!selectedLeadIds.length) {
+      return;
+    }
+
+    if (!window.confirm(`Delete ${selectedLeadIds.length} selected lead(s)?`)) {
+      return;
+    }
+
+    setBulkDeleting(true);
+
+    try {
+      const response = await fetch(`/api/leads?password=${encodeURIComponent(password)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadIds: selectedLeadIds }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete selected leads');
+      }
+
+      setSelectedLeadIds([]);
+      fetchLeads();
+    } catch (err: any) {
+      console.error('Failed to delete selected leads:', err);
+      setError(err.message || 'Failed to delete selected leads');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleSelectAllVisible = (filteredIds: string[], allSelected: boolean) => {
+    if (allSelected) {
+      setSelectedLeadIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
+    } else {
+      setSelectedLeadIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedLeadIds([]);
+  };
+
   const exportToCSV = () => {
     const headers = ['Name', 'Email', 'Phone', 'Service', 'Preferred Date', 'Status', 'Created At'];
     const rows = filteredLeads.map(lead => [
@@ -89,6 +185,12 @@ export default function AdminPage() {
   const filteredLeads = filter === 'all'
     ? leads
     : leads.filter(lead => lead.status === filter);
+
+  const filteredLeadIds = filteredLeads
+    .map((lead) => lead._id?.toString())
+    .filter(Boolean) as string[];
+  const allFilteredSelected = filteredLeadIds.length > 0 && filteredLeadIds.every((id) => selectedLeadIds.includes(id));
+  const selectedCount = selectedLeadIds.length;
 
   const stats = {
     total: leads.length,
@@ -215,12 +317,48 @@ export default function AdminPage() {
           </div>
         </div>
 
+        <div className="bg-white rounded-lg p-3 sm:p-4 shadow mb-4 sm:mb-6">
+          <div className="flex flex-wrap gap-2 items-center">
+            <button
+              onClick={() => handleSelectAllVisible(filteredLeadIds, allFilteredSelected)}
+              className="px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm"
+            >
+              {allFilteredSelected ? 'Deselect visible' : 'Select visible'}
+            </button>
+            <button
+              onClick={clearSelection}
+              disabled={!selectedCount}
+              className="px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm disabled:opacity-50"
+            >
+              Clear selection
+            </button>
+            <button
+              onClick={deleteSelectedLeads}
+              disabled={!selectedCount || bulkDeleting}
+              className="px-3 sm:px-4 py-2 text-white rounded-lg bg-red-600 hover:bg-red-700 text-sm disabled:opacity-50"
+            >
+              {bulkDeleting ? 'Deleting…' : `Delete selected (${selectedCount})`}
+            </button>
+            <span className="text-sm text-gray-500">
+              {selectedCount} selected
+            </span>
+          </div>
+        </div>
+
         {/* Leads Table - Desktop */}
         <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <input
+                      type="checkbox"
+                      checked={allFilteredSelected}
+                      onChange={() => handleSelectAllVisible(filteredLeadIds, allFilteredSelected)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
@@ -232,51 +370,73 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredLeads.map((lead) => (
-                  <tr key={lead._id?.toString()} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {lead.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <a href={`mailto:${lead.email}`} className="text-primary-600 hover:text-primary-700">
-                        {lead.email}
-                      </a>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {lead.phone}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {lead.service}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {lead.preferredDate || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={lead.status}
-                        onChange={(e) => updateLeadStatus(lead._id!.toString(), e.target.value as Lead['status'])}
-                        className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      >
-                        <option value="new">New</option>
-                        <option value="contacted">Contacted</option>
-                        <option value="scheduled">Scheduled</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(lead.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className="text-primary-600 hover:text-primary-700 font-medium"
-                      >
-                        Call
-                      </a>
-                    </td>
-                  </tr>
-                ))}
+                {filteredLeads.map((lead) => {
+                  const leadId = lead._id?.toString() ?? '';
+                  const isSelected = selectedLeadIds.includes(leadId);
+                  return (
+                    <tr key={leadId || lead.email} className="hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          disabled={!leadId}
+                          onChange={() => leadId && toggleLeadSelection(leadId)}
+                          className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {lead.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <a href={`mailto:${lead.email}`} className="text-primary-600 hover:text-primary-700">
+                          {lead.email}
+                        </a>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {lead.phone}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {lead.service}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {lead.preferredDate || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <select
+                          value={lead.status}
+                          onChange={(e) => updateLeadStatus(lead._id!.toString(), e.target.value as Lead['status'])}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          <option value="new">New</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="scheduled">Scheduled</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {new Date(lead.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center gap-3">
+                          <a
+                            href={`tel:${lead.phone}`}
+                            className="text-primary-600 hover:text-primary-700 font-medium"
+                          >
+                            Call
+                          </a>
+                          <button
+                            onClick={() => deleteLead(lead._id!.toString())}
+                            className="text-red-600 hover:text-red-700 font-medium"
+                            disabled={deletingLeadId === lead._id?.toString()}
+                          >
+                            {deletingLeadId === lead._id?.toString() ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -290,58 +450,80 @@ export default function AdminPage() {
 
         {/* Leads Cards - Mobile */}
         <div className="md:hidden space-y-3">
-          {filteredLeads.map((lead) => (
-            <div key={lead._id?.toString()} className="bg-white rounded-lg shadow p-4">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-base">{lead.name}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{lead.service}</p>
+          {filteredLeads.map((lead) => {
+            const leadId = lead._id?.toString() ?? '';
+            const isSelected = selectedLeadIds.includes(leadId);
+            return (
+              <div key={leadId || lead.email} className="bg-white rounded-lg shadow p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={!leadId}
+                      onChange={() => leadId && toggleLeadSelection(leadId)}
+                      className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                    />
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-base">{lead.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{lead.service}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className="bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Call
+                    </a>
+                    <button
+                      onClick={() => deleteLead(leadId)}
+                      className="text-red-600 hover:text-red-700 font-medium"
+                      disabled={deletingLeadId === leadId}
+                    >
+                      {deletingLeadId === leadId ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
-                <a
-                  href={`tel:${lead.phone}`}
-                  className="bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Call
-                </a>
-              </div>
 
-              <div className="space-y-2 mb-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Email:</span>
-                  <a href={`mailto:${lead.email}`} className="text-primary-600 hover:text-primary-700 font-medium">
-                    {lead.email}
-                  </a>
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Email:</span>
+                    <a href={`mailto:${lead.email}`} className="text-primary-600 hover:text-primary-700 font-medium">
+                      {lead.email}
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Phone:</span>
+                    <span className="text-gray-900 font-medium">{lead.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Date:</span>
+                    <span className="text-gray-900">{lead.preferredDate || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">Created:</span>
+                    <span className="text-gray-900">{new Date(lead.createdAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Phone:</span>
-                  <span className="text-gray-900 font-medium">{lead.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Date:</span>
-                  <span className="text-gray-900">{lead.preferredDate || 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">Created:</span>
-                  <span className="text-gray-900">{new Date(lead.createdAt).toLocaleDateString()}</span>
-                </div>
-              </div>
 
-              <div className="pt-3 border-t">
-                <label className="block text-xs text-gray-500 mb-1.5">Status</label>
-                <select
-                  value={lead.status}
-                  onChange={(e) => updateLeadStatus(lead._id!.toString(), e.target.value as Lead['status'])}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="pt-3 border-t">
+                  <label className="block text-xs text-gray-500 mb-1.5">Status</label>
+                  <select
+                    value={lead.status}
+                    onChange={(e) => updateLeadStatus(lead._id!.toString(), e.target.value as Lead['status'])}
+                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {filteredLeads.length === 0 && (
             <div className="text-center py-12 text-gray-500 bg-white rounded-lg">

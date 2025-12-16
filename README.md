@@ -62,7 +62,7 @@ Crie um arquivo `.env` na raiz do projeto:
 
 ```env
 # MongoDB Atlas (Database)
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/clinic
+MONGODB_URI=your_mongodb_connection_string_here
 
 # OpenRouter AI (100% Gratuito)
 OPENROUTER_API_KEY=sk-or-v1-...
@@ -96,7 +96,7 @@ Abra [http://localhost:3000](http://localhost:3000) no navegador.
 
 **Exemplo:**
 ```
-MONGODB_URI=mongodb+srv://user:senha123@cluster0.abc.mongodb.net/clinic
+MONGODB_URI=mongodb+srv://myuser:mypassword@cluster0.abc.mongodb.net/clinic
 ```
 
 ### 2. OpenRouter (AI - 100% GRATUITO)
@@ -326,10 +326,10 @@ Você pode usar este projeto livremente para:
 
 ## 👨‍💻 Autor
 
-**Rodinei Silva**
+**Seu Nome**
 
 - 🌐 Portfolio: [seu-portfolio.com](#)
-- 💼 LinkedIn: [Rodinei Silva](#)
+- 💼 LinkedIn: [Seu Nome](#)
 - 📧 Email: [seu-email@exemplo.com](#)
 - 🐙 GitHub: [@seu-usuario](https://github.com/seu-usuario)
 

@@ -68,7 +68,7 @@ export async function sendLeadNotification({ lead }: SendLeadNotificationParams)
   try {
     const { data, error } = await resend.emails.send({
       from: 'HealthCare Clinic <onboarding@resend.dev>',
-      to: ['oddlyuseful.global@gmail.com'],
+      to: [process.env.CLINIC_EMAIL || 'clinic@example.com'],
       subject,
       html,
     });
@@ -170,10 +170,10 @@ export async function sendPatientConfirmation(lead: Lead) {
   try {
     const { data, error } = await resend.emails.send({
       from: 'HealthCare Clinic <onboarding@resend.dev>',
-      to: [lead.email, 'oddlyuseful.global@gmail.com'], // Send to patient + clinic backup
+      to: [lead.email, process.env.CLINIC_EMAIL || 'clinic@example.com'], // Send to patient + clinic backup
       subject,
       html,
-      replyTo: 'oddlyuseful.global@gmail.com', // Replies go to clinic
+      replyTo: process.env.CLINIC_EMAIL || 'clinic@example.com', // Replies go to clinic
     });
 
     if (error) {
@@ -184,7 +184,7 @@ export async function sendPatientConfirmation(lead: Lead) {
     console.log(
       'Patient confirmation email sent to:',
       lead.email,
-      '+ clinic backup (oddlyuseful.global@gmail.com)',
+      '+ clinic backup',
       'messageId:',
       data?.id
     );
@@ -273,10 +273,10 @@ export async function sendBookingAcknowledgement(lead: Lead) {
   try {
     const { data, error } = await resend.emails.send({
       from: 'HealthCare Clinic <onboarding@resend.dev>',
-      to: [lead.email, 'oddlyuseful.global@gmail.com'], // Send to patient + clinic backup
+      to: [lead.email, process.env.CLINIC_EMAIL || 'clinic@example.com'], // Send to patient + clinic backup
       subject,
       html,
-      replyTo: 'oddlyuseful.global@gmail.com', // Replies go to clinic
+      replyTo: process.env.CLINIC_EMAIL || 'clinic@example.com', // Replies go to clinic
     });
 
     if (error) {
@@ -287,7 +287,7 @@ export async function sendBookingAcknowledgement(lead: Lead) {
     console.log(
       'Booking acknowledgement sent to:',
       lead.email,
-      '+ clinic backup (oddlyuseful.global@gmail.com)',
+      '+ clinic backup',
       'messageId:',
       data?.id
     );
