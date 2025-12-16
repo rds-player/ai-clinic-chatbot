@@ -162,3 +162,64 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const password = searchParams.get('password');
+
+    if (password !== process.env.ADMIN_PASSWORD) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { leadId, leadIds } = await request.json();
+
+    const db = await getDatabase();
+    const { ObjectId } = require('mongodb');
+
+    if (Array.isArray(leadIds) && leadIds.length > 0) {
+      const objectIds = leadIds.map((id) => new ObjectId(id));
+      const result = await db.collection<Lead>('leads').deleteMany({
+        _id: { $in: objectIds },
+      });
+
+      if (result.deletedCount === 0) {
+        return NextResponse.json(
+          { error: 'No leads deleted' },
+          { status: 404 }
+        );
+      }
+
+      console.log(`Leads deleted by admin: ${leadIds.join(', ')}`);
+      return NextResponse.json({ success: true, deletedCount: result.deletedCount });
+    }
+
+    if (!leadId) {
+      return NextResponse.json(
+        { error: 'Missing leadId' },
+        { status: 400 }
+      );
+    }
+
+    const result = await db.collection<Lead>('leads').deleteOne({ _id: new ObjectId(leadId) });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { error: 'Lead not found' },
+        { status: 404 }
+      );
+    }
+
+    console.log(`Lead ${leadId} deleted by admin`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete lead:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete lead' },
+      { status: 500 }
+    );
+  }
+}
